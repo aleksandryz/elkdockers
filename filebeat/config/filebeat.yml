@@ -1,0 +1,32 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.modules:
+  - module: system
+    auth:
+      enabled: true
+      var.paths: [ "/opt/logs/*/sshd.log" ]
+  
+processors:
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
+output.elasticsearch:
+  hosts: 'https://elasticsearch:9200'
+  username: 'elastic'
+  password: 'changeme'
+  ssl.certificate_authorities: ["/usr/share/filebeat/certs/ca.crt"]
+
+setup:
+  kibana:
+    host: 'https://kibana:5601'
+    username: 'elastic'
+    password: 'changeme'
+    ssl.certificate_authorities: ["/usr/share/filebeat/certs/ca.crt"]
+
+
+setup.dashboards.enabled: true
+
+

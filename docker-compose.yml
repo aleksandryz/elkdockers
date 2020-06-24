@@ -1,0 +1,102 @@
+version: '3.8'
+
+secrets:
+  elastic.ca:
+    file: ./certs/ca/ca.crt
+  elasticsearch.certificate:
+    file: ./certs/elasticsearch/elasticsearch.crt
+  elasticsearch.key:
+    file: ./certs/elasticsearch/elasticsearch.key
+  kibana.certificate:
+    file: ./certs/kibana/kibana.crt
+  kibana.key:
+    file: ./certs/kibana/kibana.key
+
+services:
+  elasticsearch:
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    restart: unless-stopped
+    environment:
+      ELASTIC_PASSWORD: ${ELK_PASSWORD}
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./elasticsearch/config/jvm.options.d:/usr/share/elasticsearch/config/jvm.options.d
+    secrets:
+      - source: elastic.ca
+        target: /usr/share/elasticsearch/config/certs/ca.crt
+      - source: elasticsearch.certificate
+        target: /usr/share/elasticsearch/config/certs/elasticsearch.crt
+      - source: elasticsearch.key
+        target: /usr/share/elasticsearch/config/certs/elasticsearch.key
+
+  logstash:
+    build:
+      context: logstash/
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    volumes:
+      - logstash-data:/usr/share/logstash/data
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/config/pipeline.yml:/usr/share/logstash/config/pipeline.yml
+      - /opt/logs:/opt/logs:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    secrets:
+      - source: elastic.ca
+        target: /usr/share/logstash/config/certs/ca.crt
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+
+  filebeat:
+    build:
+      context: filebeat/
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+      - kibana
+    volumes:
+      - filebeat-data:/usr/share/filebeat/data
+      - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - /opt/logs:/opt/logs:ro
+    secrets:
+      - source: elastic.ca
+        target: /usr/share/filebeat/certs/ca.crt
+
+  kibana:
+    build:
+      context: kibana/
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./kibana/config:/usr/share/kibana/config
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: kibana.certificate
+        target: /certs/kibana.crt
+      - source: kibana.key
+        target: /certs/kibana.key
+volumes:
+  elasticsearch-data:
+    driver: local
+  logstash-data:
+    driver: local
+  filebeat-data:
+    driver: local

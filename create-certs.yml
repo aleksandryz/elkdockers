@@ -1,0 +1,19 @@
+version: '3.5'
+
+services:
+  create_certs:
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    command: >
+      bash -c '
+        yum install -y -q -e 0 unzip;
+        if [[ ! -f /certs/bundle.zip ]]; then
+          bin/elasticsearch-certutil cert --silent --pem --in /certs/instances.yml -out /certs/bundle.zip;
+          unzip /certs/bundle.zip -d /certs;
+        fi;
+        chown -R 1000:0 /certs
+      '
+    volumes:
+      - ./certs:/certs
